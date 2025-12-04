@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Data and Results (keep structure, ignore content)
+data/results/*
+!data/results/.gitkeep
+!data/results/examples/
+
+data/processed/*
+!data/processed/.gitkeep
+
+# IMPORTANTE: Excluir imágenes de entrada (pesan mucho)
+data/raw/SKU110K_fixed/images/*.jpg
+data/raw/SKU110K_fixed/images/*.png
+data/raw/sample/*.jpg
+data/raw/sample/*.png
+!data/raw/SKU110K_fixed/images/README.md
+!data/raw/sample/README.md
+
+# IMPORTANTE: Excluir dataset comprimido (11+ GB)
+data/raw/SKU110K_fixed.tar.gz
+data/raw/*.tar.gz
+data/raw/*.zip
+
+# Logs
+logs/*.log
+*.log
+
+# Models and cache
+.cache/
+models/
+*.pth
+*.pt
+*.onnx
+
+# HuggingFace cache
+.transformers_cache/
+transformers_cache/
+
+# Environment variables
+.env
+.env.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation builds
+docs/_build/
+site/
+
