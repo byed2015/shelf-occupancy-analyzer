@@ -1,0 +1,67 @@
+================================================================================
+REPORTE DE ANÁLISIS DE OCUPACIÓN DE ANAQUELES
+================================================================================
+
+Imagen analizada: test_179.jpg
+Número de anaqueles detectados: 9
+Ocupación promedio: 3.59%
+
+--------------------------------------------------------------------------------
+MÉTRICAS POR ANAQUEL
+--------------------------------------------------------------------------------
+
+Anaquel 1:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 2:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 3:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 4:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 5:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 6:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 7:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 8:
+  - Ocupación: 32.32%
+  - Celdas ocupadas: 36/50
+  - Ocupación mín/máx: 0.097 / 0.565
+  - Desviación estándar: 0.141
+
+Anaquel 9:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+================================================================================

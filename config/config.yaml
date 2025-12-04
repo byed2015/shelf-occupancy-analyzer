@@ -1,0 +1,107 @@
+# Configuración principal del sistema de análisis de ocupación de anaqueles
+
+# Dataset
+dataset:
+  name: "SKU-110K"
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  results_dir: "data/results"
+  sample_size: 10  # Número de imágenes para testing inicial
+
+# Preprocesamiento
+preprocessing:
+  # CLAHE para corrección de iluminación
+  clahe:
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+  
+  # Filtrado de ruido
+  bilateral_filter:
+    d: 9  # Diámetro de cada vecindario de pixel
+    sigma_color: 75
+    sigma_space: 75
+  
+  # Normalización
+  target_size: [640, 640]  # null para mantener tamaño original
+  normalize_values: true
+
+# Detección de estructura de anaqueles
+shelf_detection:
+  # Detección de bordes Canny
+  canny:
+    low_threshold: 50
+    high_threshold: 150
+    aperture_size: 3
+  
+  # Transformada de Hough para líneas
+  hough:
+    rho: 1
+    theta: 0.017453293  # pi/180 (1 grado)
+    threshold: 100
+    min_line_length: 100
+    max_line_gap: 10
+  
+  # Clustering de líneas
+  clustering:
+    angle_tolerance: 10  # grados
+    distance_tolerance: 50  # píxeles
+    min_lines_per_shelf: 2
+  
+  # Morfología
+  morphology:
+    kernel_size: [5, 5]
+    iterations: 2
+
+# Estimación de profundidad
+depth_estimation:
+  model_name: "depth-anything/Depth-Anything-V2-Small-hf"
+  device: "cuda"  # "cuda" o "cpu"
+  batch_size: 1
+  normalize_depth: true
+  
+  # Post-procesamiento
+  postprocessing:
+    bilateral_filter:
+      d: 9
+      sigma_color: 50
+      sigma_space: 50
+    resize_to_original: true
+
+# Análisis de ocupación
+occupancy_analysis:
+  # Tamaño de la cuadrícula para análisis
+  grid_size: [10, 5]  # [columnas, filas]
+  
+  # Umbrales para determinación de ocupación
+  thresholds:
+    depth_percentile: 0.3  # percentil para considerar ocupado
+    min_occupancy: 0.2  # mínimo % para considerar ocupado
+    std_threshold: 0.1  # umbral de desviación estándar
+  
+  # Normalización por anaquel
+  normalization:
+    method: "minmax"  # "minmax", "zscore", "robust"
+    per_shelf: true
+
+# Visualización
+visualization:
+  # Colores para overlay (RGB)
+  colors:
+    high_occupancy: [0, 255, 0]  # Verde
+    medium_occupancy: [255, 255, 0]  # Amarillo
+    low_occupancy: [255, 0, 0]  # Rojo
+  
+  # Umbrales para clasificación visual
+  occupancy_levels:
+    high: 0.7
+    medium: 0.4
+  
+  # Configuración de plots
+  dpi: 150
+  figsize: [15, 10]
+  save_format: "png"
+  
+  # Mapas de calor
+  heatmap:
+    cmap: "viridis"
+    interpolation: "bilinear"

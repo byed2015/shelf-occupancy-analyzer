@@ -1,0 +1,43 @@
+================================================================================
+REPORTE DE ANÁLISIS DE OCUPACIÓN DE ANAQUELES
+================================================================================
+
+Imagen analizada: test_192.jpg
+Número de anaqueles detectados: 5
+Ocupación promedio: 21.32%
+
+--------------------------------------------------------------------------------
+MÉTRICAS POR ANAQUEL
+--------------------------------------------------------------------------------
+
+Anaquel 1:
+  - Ocupación: 42.36%
+  - Celdas ocupadas: 40/50
+  - Ocupación mín/máx: 0.053 / 0.860
+  - Desviación estándar: 0.210
+
+Anaquel 2:
+  - Ocupación: 29.40%
+  - Celdas ocupadas: 38/50
+  - Ocupación mín/máx: 0.091 / 0.428
+  - Desviación estándar: 0.102
+
+Anaquel 3:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+Anaquel 4:
+  - Ocupación: 34.82%
+  - Celdas ocupadas: 44/50
+  - Ocupación mín/máx: 0.156 / 0.541
+  - Desviación estándar: 0.102
+
+Anaquel 5:
+  - Ocupación: 0.00%
+  - Celdas ocupadas: 0/50
+  - Ocupación mín/máx: 0.000 / 0.000
+  - Desviación estándar: 0.000
+
+================================================================================
