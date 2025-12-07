@@ -294,6 +294,34 @@ class Quadrilateral:
         area = 0.5 * abs(sum(x[i] * y[i+1] - x[i+1] * y[i] for i in range(-1, 3)))
         return area
     
+    @property
+    def height(self) -> float:
+        """Altura promedio del cuadrilátero."""
+        left_height = abs(self.bottom_left[1] - self.top_left[1])
+        right_height = abs(self.bottom_right[1] - self.top_right[1])
+        return (left_height + right_height) / 2
+    
+    @property
+    def width(self) -> float:
+        """Ancho promedio del cuadrilátero."""
+        top_width = abs(self.top_right[0] - self.top_left[0])
+        bottom_width = abs(self.bottom_right[0] - self.bottom_left[0])
+        return (top_width + bottom_width) / 2
+    
+    def contains_point(self, point: Tuple[float, float]) -> bool:
+        """
+        Verifica si un punto está dentro del cuadrilátero.
+        
+        Args:
+            point: Punto (x, y) a verificar
+        
+        Returns:
+            True si el punto está dentro del cuadrilátero
+        """
+        corners = self.get_corners()
+        result = cv2.pointPolygonTest(corners, point, False)
+        return result >= 0
+    
     def __repr__(self) -> str:
         return (f"Quadrilateral(TL={self.top_left}, TR={self.top_right}, "
                 f"BR={self.bottom_right}, BL={self.bottom_left})")

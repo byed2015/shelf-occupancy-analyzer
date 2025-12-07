@@ -30,7 +30,7 @@ from shelf_occupancy.analysis import GridAnalyzer
 from shelf_occupancy.config import load_config
 from shelf_occupancy.depth import DepthEstimator
 from shelf_occupancy.detection import EdgeDetector, LineDetector, ShelfDetector
-from shelf_occupancy.preprocessing import ImagePreprocessor, PerspectiveCorrector
+from shelf_occupancy.preprocessing import ImagePreprocessor
 from shelf_occupancy.utils import load_image, save_image
 from shelf_occupancy.visualization import OccupancyVisualizer
 
@@ -165,10 +165,60 @@ class PipelineVisualizer:
             # NO corregimos perspectiva, segmentamos siguiendo las líneas naturales
             logger.info("📦 PASO 4: Detección de anaqueles (cuadriláteros inclinados)")
             shelf_detector = ShelfDetector(self.config.shelf_detection)
-            shelves = shelf_detector.detect_from_lines(h_lines, v_lines, original.shape[:2], use_quadrilaterals=True)
+            
+            # Detectar anaqueles sin objetos (método simplificado)
+            shelves = shelf_detector.detect_from_lines(
+                h_lines, 
+                v_lines, 
+                original.shape[:2], 
+                use_quadrilaterals=True,
+                detected_objects=None  # No usar objetos para refinamiento
+            )
+            
             if not shelves:
                 logger.warning("   ⚠ No se detectaron anaqueles, usando cuadrícula simple")
                 shelves = shelf_detector.detect_simple_grid(original.shape[:2], n_rows=4)
+            
+            # FILTRADO GEOMÉTRICO MEJORADO (sin YOLO)
+            logger.info(f"🔍 Filtrando anaqueles por geometría y posición...")
+            valid_shelves = []
+            
+            for i, shelf in enumerate(shelves):
+                # Validación geométrica: no piso ni techo
+                center_y = shelf.center[1]
+                image_height = original.shape[0]
+                is_floor = center_y > image_height * 0.85  # 15% inferior
+                is_ceiling = center_y < image_height * 0.05  # 5% superior
+                
+                # Validar área mínima
+                if hasattr(shelf, 'get_area'):
+                    area = shelf.get_area()
+                else:
+                    area = shelf.width * shelf.height if hasattr(shelf, 'width') else 1000000
+                
+                min_area = image_height * 100  # Área mínima proporcional a imagen
+                is_too_small = area < min_area
+                
+                # Validar aspect ratio (anaqueles son más anchos que altos)
+                if hasattr(shelf, 'width') and hasattr(shelf, 'height'):
+                    aspect_ratio = shelf.width / shelf.height if shelf.height > 0 else 0
+                    is_valid_ratio = 1.5 < aspect_ratio < 50  # Anaqueles típicamente 2:1 a 20:1
+                else:
+                    is_valid_ratio = True  # Asumir válido si no podemos calcular
+                
+                # Decidir si es válido
+                if not is_floor and not is_ceiling and not is_too_small and is_valid_ratio:
+                    valid_shelves.append(shelf)
+                    logger.info(f"   ✓ Anaquel {i+1}: área={area:.0f}px² - VÁLIDO")
+                else:
+                    reason = "piso" if is_floor else ("techo" if is_ceiling else ("muy pequeño" if is_too_small else "aspect ratio inválido"))
+                    logger.warning(f"   ✗ Anaquel {i+1}: área={area:.0f}px² - DESCARTADO ({reason})")
+            
+            if valid_shelves:
+                logger.info(f"   ✓ Anaqueles válidos: {len(valid_shelves)}/{len(shelves)}")
+                shelves = valid_shelves
+            else:
+                logger.warning("   ⚠ No hay anaqueles válidos tras filtrado, usando todos")
             
             # Visualizar anaqueles (dibujar cuadriláteros inclinados)
             shelves_img = original.copy()
@@ -227,10 +277,10 @@ class PipelineVisualizer:
             logger.info(f"   ✓ Mapa de profundidad generado")
             logger.info(f"   ✓ Rango: [{depth_map.min():.3f}, {depth_map.max():.3f}]\n")
             
-            # Paso 6: Análisis de ocupación (MÉTODO DIRECTO CON MEDIANA)
-            logger.info("📊 PASO 6: Análisis de ocupación (método mediana directa)")
+            # Paso 6: Análisis de ocupación (NORMALIZACIÓN POR CUADRILÁTERO)
+            logger.info("📊 PASO 6: Análisis de ocupación (normalización independiente por anaquel)")
             
-            # Para cada anaquel (cuadrilátero), calcular ocupación directamente
+            # Para cada anaquel (cuadrilátero), calcular ocupación con normalización local
             occupancy_percentages = []
             stats_list = []
             
@@ -245,22 +295,47 @@ class PipelineVisualizer:
                     shelf_depth_values = depth_map[mask == 1]
                     
                     if shelf_depth_values.size > 0:
-                        # MÉTODO DIRECTO: Mediana de profundidad
-                        # Depth-Anything: 0=cerca (productos), 1=lejos (vacío)
-                        # Ocupación = 1 - mediana (invertir)
-                        median_depth = np.median(shelf_depth_values)
-                        occupancy = (1.0 - median_depth) * 100  # Convertir a porcentaje
+                        # 🔥 NORMALIZACIÓN LOCAL POR CUADRILÁTERO
+                        # Medir min/max DENTRO del cuadrilátero (no de la imagen completa)
+                        depth_min = np.min(shelf_depth_values)
+                        depth_max = np.max(shelf_depth_values)
+                        depth_range = depth_max - depth_min
                         
-                        logger.info(f"   Anaquel {i+1}: mediana_profundidad={median_depth:.3f} → ocupación={occupancy:.1f}%")
+                        # Normalizar profundidades al rango [0, 1] LOCAL
+                        if depth_range > 0.01:  # Evitar división por cero
+                            normalized_depths = (shelf_depth_values - depth_min) / depth_range
+                        else:
+                            # Si el rango es muy pequeño, asumir uniforme
+                            normalized_depths = np.ones_like(shelf_depth_values) * 0.5
+                        
+                        # Calcular mediana de profundidades normalizadas
+                        median_normalized = np.median(normalized_depths)
+                        mean_normalized = np.mean(normalized_depths)
+                        
+                        # Interpretación:
+                        # - median_normalized cercano a 0 = mayoría de píxeles cerca del fondo (vacío)
+                        # - median_normalized cercano a 1 = mayoría de píxeles cerca del frente (lleno)
+                        # Por lo tanto: ocupación = median_normalized * 100
+                        
+                        occupancy = median_normalized * 100  # Convertir a porcentaje
+                        
+                        logger.info(f"   Anaquel {i+1}:")
+                        logger.info(f"      → Rango profundidad: [{depth_min:.3f}, {depth_max:.3f}]")
+                        logger.info(f"      → Mediana normalizada: {median_normalized:.3f}")
+                        logger.info(f"      → Media normalizada: {mean_normalized:.3f}")
+                        logger.info(f"      → Ocupación: {occupancy:.1f}%")
                         
                         occupancy_percentages.append(occupancy)
                         stats_list.append({
-                            'mean_occupancy': float(1.0 - median_depth),
-                            'median_occupancy': float(1.0 - median_depth),
-                            'std_occupancy': float(np.std(1.0 - shelf_depth_values)),
-                            'min_occupancy': float(1.0 - np.max(shelf_depth_values)),
-                            'max_occupancy': float(1.0 - np.min(shelf_depth_values)),
-                            'occupied_cells': int(np.sum((1.0 - shelf_depth_values) > 0.3)),
+                            'mean_occupancy': float(mean_normalized),
+                            'median_occupancy': float(median_normalized),
+                            'std_occupancy': float(np.std(normalized_depths)),
+                            'min_occupancy': float(np.min(normalized_depths)),
+                            'max_occupancy': float(np.max(normalized_depths)),
+                            'depth_min': float(depth_min),
+                            'depth_max': float(depth_max),
+                            'depth_range': float(depth_range),
+                            'occupied_cells': int(np.sum(normalized_depths > 0.3)),
                             'total_cells': int(shelf_depth_values.size)
                         })
                     else:
@@ -270,13 +345,86 @@ class PipelineVisualizer:
                 else:  # BoundingBox tradicional
                     shelf_region = depth_map[shelf.y1:shelf.y2, shelf.x1:shelf.x2]
                     if shelf_region.size > 0:
-                        median_depth = np.median(shelf_region)
-                        occupancy = (1.0 - median_depth) * 100
+                        depth_min = np.min(shelf_region)
+                        depth_max = np.max(shelf_region)
+                        depth_range = depth_max - depth_min
+                        
+                        if depth_range > 0.01:
+                            normalized = (shelf_region - depth_min) / depth_range
+                            median_normalized = np.median(normalized)
+                        else:
+                            median_normalized = 0.5
+                        
+                        occupancy = median_normalized * 100
                         occupancy_percentages.append(occupancy)
                         stats_list.append({})
                     else:
                         occupancy_percentages.append(0.0)
                         stats_list.append({})
+            
+            # Paso 6.5: Visualización combinada (cuadriláteros + depth)
+            logger.info("\n🔗 PASO 6.5: Visualización combinada (anaqueles + profundidad)")
+            
+            # Vista combinada simplificada - depth en escala de grises + anaqueles
+            combined_view = original.copy()
+            
+            # 1. Aplicar mapa de profundidad en escala de grises (sutil)
+            depth_norm = ((depth_map - depth_map.min()) / (depth_map.max() - depth_map.min()) * 255).astype(np.uint8)
+            depth_gray = cv2.cvtColor(cv2.applyColorMap(depth_norm, cv2.COLORMAP_BONE), cv2.COLOR_BGR2GRAY)
+            depth_gray_3ch = cv2.cvtColor(depth_gray, cv2.COLOR_GRAY2BGR)
+            cv2.addWeighted(depth_gray_3ch, 0.25, combined_view, 0.75, 0, combined_view)
+            
+            # 2. Dibujar cuadriláteros de anaqueles
+            for i, shelf in enumerate(shelves):
+                if hasattr(shelf, 'get_corners'):
+                    corners = shelf.get_corners().astype(np.int32)
+                    # Líneas cian gruesas para anaqueles
+                    cv2.polylines(combined_view, [corners], True, (255, 255, 0), 4)
+                    
+                    # Etiqueta simple
+                    center = shelf.center
+                    label = f"A{i+1}"
+                    (text_w, text_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+                    
+                    # Fondo semi-transparente para la etiqueta
+                    overlay = combined_view.copy()
+                    cv2.rectangle(overlay, 
+                                (int(center[0]) - text_w//2 - 5, int(center[1]) - text_h//2 - 5),
+                                (int(center[0]) + text_w//2 + 5, int(center[1]) + text_h//2 + 5),
+                                (0, 0, 0), -1)
+                    cv2.addWeighted(overlay, 0.6, combined_view, 0.4, 0, combined_view)
+                    
+                    cv2.putText(
+                        combined_view,
+                        label,
+                        (int(center[0]) - text_w//2, int(center[1]) + text_h//2),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 0),
+                        2
+                    )
+                else:
+                    cv2.rectangle(
+                        combined_view,
+                        (shelf.x1, shelf.y1),
+                        (shelf.x2, shelf.y2),
+                        (255, 255, 0),
+                        4
+                    )
+            
+            # Agregar leyenda
+            legend_y = 35
+            legend_bg = combined_view.copy()
+            cv2.rectangle(legend_bg, (5, 5), (550, 50), (0, 0, 0), -1)
+            cv2.addWeighted(legend_bg, 0.7, combined_view, 0.3, 0, combined_view)
+            
+            cv2.putText(combined_view, "Amarillo: Anaqueles | Fondo: Profundidad (gris)", 
+                       (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            self.steps['6.5_combined'] = combined_view
+            self.step_info['6.5_combined'] = f"Vista Combinada\n{len(shelves)} anaqueles"
+            logger.info(f"   ✓ Vista combinada creada")
+            logger.info(f"   ✓ Anaqueles válidos: {len(shelves)}\n")
             
             # Paso 7: Visualización final
             logger.info("\n🎨 PASO 7: Visualización de resultados")

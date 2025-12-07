@@ -26,8 +26,9 @@ PyYAML>=6.0.0
 # Logging
 loguru>=0.7.0
 
-# Optional: Streamlit deployment
-# streamlit>=1.28.0
+# Visualization & UI
+matplotlib>=3.7.0
+streamlit>=1.28.0
 
 # Development (optional)
 # pytest>=7.4.0

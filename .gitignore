@@ -94,6 +94,8 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+*.backup
+*.bak
 
 # Documentation builds
 docs/_build/

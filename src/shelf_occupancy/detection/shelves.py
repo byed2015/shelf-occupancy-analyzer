@@ -1,6 +1,6 @@
 """Módulo de detección de anaqueles."""
 
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import numpy as np
 from loguru import logger
@@ -9,6 +9,9 @@ from sklearn.cluster import DBSCAN
 from shelf_occupancy.config import ClusteringConfig, ShelfDetectionConfig
 from shelf_occupancy.detection.lines import Line
 from shelf_occupancy.utils.geometry import BoundingBox, Quadrilateral
+
+if TYPE_CHECKING:
+    from shelf_occupancy.detection.objects import DetectedObject
 
 
 class ShelfDetector:
@@ -31,7 +34,8 @@ class ShelfDetector:
         horizontal_lines: List[Line],
         vertical_lines: List[Line],
         image_shape: Tuple[int, int],
-        use_quadrilaterals: bool = True
+        use_quadrilaterals: bool = True,
+        detected_objects: Optional[List["DetectedObject"]] = None
     ) -> Union[List[BoundingBox], List[Quadrilateral]]:
         """
         Detecta anaqueles a partir de líneas horizontales y verticales.
@@ -42,6 +46,7 @@ class ShelfDetector:
             image_shape: Forma de la imagen (height, width)
             use_quadrilaterals: Si True, retorna Quadrilaterals (soporta perspectiva)
                               Si False, retorna BoundingBoxes rectangulares
+            detected_objects: Objetos detectados con YOLO para refinar líneas
         
         Returns:
             Lista de anaqueles (Quadrilateral o BoundingBox)
@@ -51,6 +56,12 @@ class ShelfDetector:
             return []
         
         height, width = image_shape
+        
+        # Refinar líneas si hay objetos detectados
+        if detected_objects is not None and len(detected_objects) > 0:
+            logger.info(f"Refinando {len(horizontal_lines)} líneas con {len(detected_objects)} objetos detectados")
+            horizontal_lines = self._refine_lines_with_objects(horizontal_lines, detected_objects, width)
+            logger.info(f"Líneas refinadas: {len(horizontal_lines)}")
         
         if use_quadrilaterals:
             # Detectar anaqueles como cuadriláteros inclinados
@@ -325,6 +336,98 @@ class ShelfDetector:
         logger.info(f"Creada cuadrícula simple: {n_rows}x{n_cols} = {len(bboxes)} anaqueles")
         
         return bboxes
+    
+    def _refine_lines_with_objects(
+        self,
+        lines: List[Line],
+        detected_objects: List["DetectedObject"],
+        image_width: int
+    ) -> List[Line]:
+        """
+        Ajusta las líneas horizontales para evitar intersectar objetos detectados.
+        
+        Estrategia:
+        1. Para cada línea, verifica si intersecta objetos
+        2. Si intersecta, busca el "gap" más cercano (espacio entre objetos)
+        3. Ajusta la línea para pasar por el gap
+        
+        Args:
+            lines: Líneas horizontales a refinar
+            detected_objects: Objetos detectados con YOLO
+            image_width: Ancho de la imagen
+        
+        Returns:
+            Líneas refinadas que evitan objetos
+        """
+        refined_lines = []
+        margin = 10  # Margen de seguridad en píxeles
+        
+        for line in lines:
+            # Calcular Y promedio de la línea
+            y_avg = (line.y1 + line.y2) / 2
+            
+            # Encontrar objetos que esta línea intersecta (con margen)
+            intersecting_objects = [
+                obj for obj in detected_objects
+                if obj.y1 - margin <= y_avg <= obj.y2 + margin
+            ]
+            
+            if not intersecting_objects:
+                # No hay intersección, mantener línea original
+                refined_lines.append(line)
+                continue
+            
+            # Hay intersección, buscar gap más cercano
+            # Ordenar objetos por posición Y
+            intersecting_objects.sort(key=lambda obj: obj.center_y)
+            
+            # Calcular posiciones de gaps (entre objetos)
+            gaps = []
+            for i in range(len(intersecting_objects) - 1):
+                obj1 = intersecting_objects[i]
+                obj2 = intersecting_objects[i + 1]
+                gap_y = (obj1.y2 + obj2.y1) / 2
+                gap_size = obj2.y1 - obj1.y2
+                
+                if gap_size > 5:  # Gap mínimo de 5 píxeles
+                    gaps.append((gap_y, gap_size))
+            
+            # También considerar gap arriba del primer objeto
+            first_obj = intersecting_objects[0]
+            if first_obj.y1 > margin:
+                gap_y = first_obj.y1 - margin
+                gaps.append((gap_y, first_obj.y1))
+            
+            # Y gap abajo del último objeto
+            last_obj = intersecting_objects[-1]
+            gap_y = last_obj.y2 + margin
+            gaps.append((gap_y, float('inf')))
+            
+            if gaps:
+                # Elegir gap más cercano a la posición original
+                best_gap = min(gaps, key=lambda g: abs(g[0] - y_avg))
+                new_y = best_gap[0]
+                
+                # Ajustar línea a nuevo Y
+                # Mantener inclinación original
+                dy = new_y - y_avg
+                new_line = Line(
+                    x1=line.x1,
+                    y1=line.y1 + dy,
+                    x2=line.x2,
+                    y2=line.y2 + dy,
+                    angle=line.angle,
+                    length=line.length
+                )
+                refined_lines.append(new_line)
+                
+                logger.debug(f"Línea ajustada de Y={y_avg:.1f} a Y={new_y:.1f} (gap de {best_gap[1]:.1f}px)")
+            else:
+                # No hay gaps disponibles, mantener línea original
+                # (esto es raro, pero puede pasar si todos los objetos están pegados)
+                refined_lines.append(line)
+        
+        return refined_lines
 
 
 def detect_shelves_from_lines(

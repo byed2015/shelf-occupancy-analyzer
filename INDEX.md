@@ -1,6 +1,6 @@
 # 📦 Shelf Occupancy Analyzer - Índice de Documentación
 
-**Versión**: 1.3.0 (Pipeline Optimizado) | **Estado**: ✅ Producción
+**Versión**: 2.0.0 (Normalización Local + Pipeline Simplificado) | **Estado**: ✅ Producción
 
 ---
 
@@ -10,8 +10,8 @@
 
 1. **[README.md](README.md)** - Overview general del proyecto
 2. **[GETTING_STARTED.md](GETTING_STARTED.md)** - Guía técnica completa
-3. **[PIPELINE_OPTIMIZATION.md](PIPELINE_OPTIMIZATION.md)** - Optimizaciones v1.3.0 ⭐ NUEVO
-4. **[Plan_Proyecto_Final.md](../Plan_Proyecto_Final.md)** - Diseño arquitectónico
+3. **[PIPELINE_OPTIMIZATION.md](PIPELINE_OPTIMIZATION.md)** - Optimizaciones v2.0.0 ⭐ NUEVO
+4. **[STREAMLIT_APP.md](STREAMLIT_APP.md)** - Guía de la aplicación Streamlit
 
 ---
 
@@ -23,8 +23,10 @@
 |---------|-------------|------------|
 | **README.md** | Descripción general, instalación, uso básico | Todos los usuarios |
 | **GETTING_STARTED.md** | Tutorial técnico completo con ejemplos | Desarrolladores |
-| **PIPELINE_OPTIMIZATION.md** ⭐ | Auditoría y optimización del pipeline (v1.3.0) | Técnicos/Investigadores |
+| **PIPELINE_OPTIMIZATION.md** ⭐ | Auditoría y optimización del pipeline (v2.0.0) | Técnicos/Investigadores |
 | **MEJORAS_IMPLEMENTADAS.md** | Detalles del sistema de refinamiento (v1.1.0) | Interesados en técnicas ML |
+| **STREAMLIT_APP.md** | Guía completa de la aplicación web | Usuarios finales |
+| **INDEX.md** | Índice de documentación (este archivo) | Todos |
 
 ### Para Desarrolladores
 
@@ -33,13 +35,8 @@
 | **shelf_occupancy_inference.py** | API simplificada para Streamlit |
 | **visualize_pipeline.py** | Pipeline completo con visualización |
 | **process_all_images.py** | Procesamiento batch |
+| **app.py** | Aplicación Streamlit completa |
 | **config/config.yaml** | Configuración centralizada |
-
-### Plan del Proyecto
-
-| Archivo | Descripción |
-|---------|-------------|
-| **[Plan_Proyecto_Final.md](../Plan_Proyecto_Final.md)** | Diseño arquitectónico original + Resumen ejecutivo final |
 
 ---
 
@@ -60,10 +57,10 @@ shelf-occupancy-analyzer/
 │   └── config.yaml                   ← Configuración central
 │
 ├── 💻 src/shelf_occupancy/           ← Código fuente
-│   ├── preprocessing/                ← CLAHE + bilateral
+│   ├── preprocessing/                ← Gaussian Blur (simplificado)
 │   ├── detection/                    ← Bordes, líneas, cuadriláteros
 │   ├── depth/                        ← Depth-Anything-V2
-│   ├── analysis/                     ← Cuadrículas + refinamiento
+│   ├── analysis/                     ← Cuadrículas + normalización local
 │   ├── visualization/                ← Overlays y heatmaps
 │   └── utils/                        ← BoundingBox, Quadrilateral, I/O
 │
@@ -200,6 +197,7 @@ Ver: [GETTING_STARTED.md § Desarrollo y Testing](GETTING_STARTED.md#desarrollo-
 
 ## 📝 Historial de Versiones
 
+- **v2.0.0** (Dic 2024): Normalización local por cuadrilátero, pipeline simplificado, 20% más rápido
 - **v1.2.0** (Dic 2024): Arquitectura de cuadriláteros, filtrado absoluto, sin corrección perspectiva
 - **v1.1.0** (Dic 2024): Sistema de refinamiento integrado (~20% mejora)
 - **v1.0.0** (Nov 2024): Pipeline base con Depth-Anything-V2
